@@ -5,6 +5,7 @@ use clap::Parser;
 use sha256::digest;
 use rayon::prelude::*;
 use std::time::Duration;
+use chrono::Utc;
 use crossbeam_channel::{Sender, unbounded};
 
 /// Аргументы командной строки
@@ -95,7 +96,7 @@ fn main() {
     let producer = Producer::new(senders);
     producer.start_sending();
 
-    //thread_pool.broadcast( move |ctx| {
+    let start = Utc::now();
     for _ in 0..recv_len {
         let receivers = receivers.clone();
         let hashes = hashes.clone();
@@ -118,6 +119,8 @@ fn main() {
                         hashes.push((number, hash));
 
                         if hashes.len() >= F {
+                            let finish = Utc::now();
+                            println!("total time: {}", finish - start);
                             process::exit(0)
                         }
                     }

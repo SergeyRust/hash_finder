@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.4.1", features = ["derive"] }
+chrono = "0.4.26"
 sha256 = "1.4.0"
 rayon = "1.7"
 crossbeam-channel = "0.4.0"

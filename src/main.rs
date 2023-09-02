@@ -67,11 +67,6 @@ fn main() {
     // Получаем количество ядер процессора
     let num_cpus = num_cpus::get();
     //let ap = thread::available_parallelism().unwrap(); TODO
-    // чтобы каждое ядро выполняло отдельную таску
-    let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus)
-        .build()
-        .unwrap();
     // Количество нулей (N), которыми должен оканчиваться дайджест хэша
     let mut pattern = String::new();
     while N > 0 {

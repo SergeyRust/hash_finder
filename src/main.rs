@@ -19,12 +19,13 @@ struct Args {
     F: usize,
 }
 
-struct NumberProducer {
+/// Распределяет данные для задач
+struct Producer {
     current_number: Arc<AtomicUsize>, // Arc<usize>
     senders: Arc<Vec<Sender<usize>>>,
 }
 
-impl NumberProducer {
+impl Producer {
 
     fn new(sync_senders: Arc<Vec<Sender<usize>>>) -> Self {
         Self {
@@ -33,6 +34,7 @@ impl NumberProducer {
         }
     }
 
+    /// Отправляет каждой задаче свой набор чисел начиная с 1,
     fn start_sending(&self) {
         let len = self.senders.len();
         let mut current = 0;
@@ -40,7 +42,7 @@ impl NumberProducer {
         let current_number = self.current_number.clone();
 
         thread::spawn(move || {
-            'outer: loop {
+            loop {
                 let senders = senders.clone();
 
                 while current < len {
@@ -78,7 +80,7 @@ fn main() {
 
     // Массив (исходное число, хеш) , размером F
     let hashes: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(Vec::new()));
-    // Каждая задача будет обрабатывать свое число, producer шлет данные разным
+    // Каждая задача будет обрабатывать свое число, producer распределяет данные
     let mut senders = Vec::with_capacity(num_cpus.clone());
     let mut receivers = Vec::with_capacity(num_cpus.clone());
     for _ in 0..num_cpus {
@@ -90,7 +92,7 @@ fn main() {
     let recv_len = receivers.len();
     let receivers = Arc::new(Mutex::new(receivers));
 
-    let producer = NumberProducer::new(senders);
+    let producer = Producer::new(senders);
     producer.start_sending();
 
     //thread_pool.broadcast( move |ctx| {

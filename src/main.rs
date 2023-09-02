@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{process, thread};
 use clap::Parser;
 use sha256::digest;
-use rayon::prelude::*;
 use std::time::Duration;
 use chrono::Utc;
 use crossbeam_channel::{Sender, unbounded};
@@ -36,6 +35,8 @@ impl Producer {
     }
 
     /// Отправляет каждой задаче свой набор чисел начиная с 1,
+    /// при 8 ядрах процессора (16 потоков)
+    /// 1 -> task1, 2-> task2, 3 -> task3 ... 17 -> task1
     fn start_sending(&self) {
         let len = self.senders.len();
         let mut current = 0;
@@ -48,7 +49,7 @@ impl Producer {
 
                 while current < len {
                     let tx = senders.get(current.clone()).unwrap();
-                    let number = current_number.fetch_add(1, Ordering::Relaxed); // current_number.as_ref();
+                    let number = current_number.fetch_add(1, Ordering::Relaxed);
                     let _ = tx.send(number.clone());
                     current += 1;
                 }
@@ -65,10 +66,10 @@ fn main() {
     let mut N =  args.N;
     let F = args.F;
     // Получаем количество ядер процессора
-    let num_cpus = num_cpus::get();
-    //let ap = thread::available_parallelism().unwrap(); TODO
+    let num_cpus = thread::available_parallelism().unwrap();
     // Количество нулей (N), которыми должен оканчиваться дайджест хэша
     let mut pattern = String::new();
+    let pat = 
     while N > 0 {
         pattern += "0";
         N -= 1;
@@ -77,9 +78,9 @@ fn main() {
     // Массив (исходное число, хеш) , размером F
     let hashes: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(Vec::new()));
     // Каждая задача будет обрабатывать свое число, producer распределяет данные
-    let mut senders = Vec::with_capacity(num_cpus.clone());
-    let mut receivers = Vec::with_capacity(num_cpus.clone());
-    for _ in 0..num_cpus {
+    let mut senders = Vec::with_capacity(num_cpus.get());
+    let mut receivers = Vec::with_capacity(num_cpus.get());
+    for _ in 0..num_cpus.get() {
         let (tx, rx) = unbounded(); //  bounded(1000000);
         senders.push(tx);
         receivers.push(rx);

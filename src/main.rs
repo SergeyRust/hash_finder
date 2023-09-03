@@ -3,9 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{process, thread};
 use clap::Parser;
 use sha256::digest;
-use std::time::Duration;
-use chrono::Utc;
-use crossbeam_channel::{Sender, unbounded};
+use crossbeam_channel::{bounded, Sender, unbounded};
 
 /// Аргументы командной строки
 #[derive(Parser, Debug)]
@@ -21,7 +19,7 @@ struct Args {
 
 /// Распределяет данные для задач
 struct Producer {
-    current_number: Arc<AtomicUsize>, // Arc<usize>
+    current_number: Arc<AtomicUsize>,
     senders: Arc<Vec<Sender<usize>>>,
 }
 
@@ -37,16 +35,14 @@ impl Producer {
     /// Отправляет каждой задаче свой набор чисел начиная с 1,
     /// при 8 ядрах процессора (16 потоков)
     /// 1 -> task1, 2-> task2, 3 -> task3 ... 17 -> task1
-    fn start_sending(&self) {
+    fn run(&self) {
         let len = self.senders.len();
         let mut current = 0;
         let senders = self.senders.clone();
         let current_number = self.current_number.clone();
 
-        thread::spawn(move || {
+        thread::spawn( move || {
             loop {
-                let senders = senders.clone();
-
                 while current < len {
                     let tx = senders.get(current.clone()).unwrap();
                     let number = current_number.fetch_add(1, Ordering::Relaxed);
@@ -61,43 +57,44 @@ impl Producer {
 }
 
 fn main() {
-    // Парсим аргументы командной строки
+    // Аргументы командной строки
     let args = Args::parse();
     let mut N =  args.N;
     let F = args.F;
-    // Получаем количество ядер процессора
+    // Оптимальное количество потоков при текущей архитектуре процессора
     let num_cpus = thread::available_parallelism().unwrap();
     // Количество нулей (N), которыми должен оканчиваться дайджест хэша
     let mut pattern = String::new();
-    let pat = 
     while N > 0 {
         pattern += "0";
         N -= 1;
     }
 
-    // Массив (исходное число, хеш) , размером F
-    let hashes: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(Vec::new()));
-    // Каждая задача будет обрабатывать свое число, producer распределяет данные
-    let mut senders = Vec::with_capacity(num_cpus.get());
+    // Количество посчитанных хешей с необходимым количеством нулей
+    let hashes: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    // Каждая задача обрабатывает свои числа, которые распределяет producer
     let mut receivers = Vec::with_capacity(num_cpus.get());
+    let mut senders = Vec::with_capacity(num_cpus.get());
+
     for _ in 0..num_cpus.get() {
-        let (tx, rx) = unbounded(); //  bounded(1000000);
+        // в зависимости от имеющегося свободного объема памяти можно регулировать объем буффера
+        let (tx, rx) = bounded(1000000); // unbounded()
         senders.push(tx);
         receivers.push(rx);
     }
+
     let senders = Arc::new(senders);
-    let recv_len = receivers.len();
     let receivers = Arc::new(Mutex::new(receivers));
-
     let producer = Producer::new(senders);
-    producer.start_sending();
+    producer.run();
 
-    let start = Utc::now();
-    for _ in 0..recv_len {
+    // Запускаем столько потоков, сколько позволяет процессор
+    for _ in 0..num_cpus.get() {
         let receivers = receivers.clone();
         let hashes = hashes.clone();
         let pattern = pattern.clone();
 
+        // Каждый поток получает свое число для рассчета хеша
         thread::spawn( move || {
             let mut receivers = receivers.lock().unwrap();
             let len = receivers.len();
@@ -105,25 +102,22 @@ fn main() {
             drop(receivers);
 
             loop {
-                let received = rx.recv();
-                if let Ok(number) = received {
-                    let hash = digest(&number.to_string());
+                let number = rx.recv().unwrap();
+                let hash = digest(&number.to_string());
 
-                    if hash.ends_with(pattern.as_str()) {
-                        let mut hashes = hashes.lock().unwrap();
-                        println!(" {}, \"{}\"", &number, &hash);
-                        hashes.push((number, hash));
-
-                        if hashes.len() >= F {
-                            let finish = Utc::now();
-                            println!("total time: {}", finish - start);
-                            process::exit(0)
-                        }
+                // Когда хеш с N нулями найден, увеличиваем счетчик
+                if hash.ends_with(pattern.as_str()) {
+                    println!(" {}, \"{}\"", &number, &hash);
+                    hashes.fetch_add(1, Ordering::SeqCst);
+                    // Когда количество посчитанных хешей достигает F - завершаем программу.
+                    // Так как никаких внешних ресурсов не задействовано, это безопасно.
+                    if hashes.load(Ordering::SeqCst) >= F {
+                        process::exit(0)
                     }
                 }
             }
         });
     }
 
-    thread::sleep(Duration::from_secs(u64::MAX)); // TODO
+    thread::park()
 }

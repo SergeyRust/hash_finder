@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{process, thread};
+use chrono::Utc;
 use clap::Parser;
 use sha256::digest;
 use crossbeam_channel::{bounded, Sender, unbounded};
@@ -94,6 +95,7 @@ fn main() {
         let hashes = hashes.clone();
         let pattern = pattern.clone();
 
+        let start = Utc::now();
         // Каждый поток получает свое число для рассчета хеша
         thread::spawn( move || {
             let mut receivers = receivers.lock().unwrap();
@@ -112,6 +114,8 @@ fn main() {
                     // Когда количество посчитанных хешей достигает F - завершаем программу.
                     // Так как никаких внешних ресурсов не задействовано, это безопасно.
                     if hashes.load(Ordering::SeqCst) >= F {
+                        let finish = Utc::now();
+                        println!("total time: {}", finish - start);
                         process::exit(0)
                     }
                 }

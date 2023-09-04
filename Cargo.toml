@@ -10,4 +10,3 @@ clap = { version = "4.4.1", features = ["derive"] }
 chrono = "0.4.26"
 sha256 = "1.4.0"
 crossbeam-channel = "0.4.0"
-num_cpus = "1.0"

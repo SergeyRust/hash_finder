@@ -3,18 +3,21 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering}
 };
 use std::{process, thread};
+use std::sync::atomic::AtomicBool;
+use std::time::Duration;
 use clap::{Error as CommandError, Parser};
 use clap::error::{ContextKind, ContextValue, ErrorKind};
 use sha256::digest;
 use crossbeam_channel::{Receiver, Sender};
+
+const CHANNEL_CAPACITY: usize = 100000;
 
 fn main() {
     let args = Args::parse();
     let null_amount =  args.null_amount;
     let hashes_amount = args.hashes_amount;
 
-    if let Ok(mut hashes) = find_hashes(null_amount, hashes_amount) {
-        hashes.sort_by_key(|h| h.0);
+    if let Ok(hashes) = find_hashes(null_amount, hashes_amount) {
         for (number, hash) in hashes.iter() {
             println!(" {}, \"{}\"", number, hash);
         }
@@ -38,6 +41,8 @@ struct Args {
 
 /// Распределяет данные для задач
 struct Producer {
+    /// возможно тут нужно было бы сделать Arc<AtomicPtr<BigUint>>,
+    /// но вряд ли кто-то будет проверять это все на суперкомпьютерах или ASIC
     current_number: Arc<AtomicUsize>,
     channel_senders: Arc<Vec<Sender<usize>>>,
 }
@@ -120,7 +125,7 @@ fn find_hashes(null_amount: usize, hashes_amount: usize) -> Result<Vec<(usize, S
             let (worker_hash_tx, worker_hash_rx) = crossbeam_channel::bounded(hashes_amount);
             for _ in 0..num_cpus.get() {
                 // в зависимости от имеющегося свободного объема памяти можно регулировать объем буффера
-                let (tx, rx) = crossbeam_channel::bounded(1000000);
+                let (tx, rx) = crossbeam_channel::bounded(CHANNEL_CAPACITY);
                 producer_senders.push(tx);
                 let worker = Worker::new( Arc::new(Mutex::new(rx)));
                 worker.start(pattern.clone(), worker_hash_tx.clone());
@@ -131,9 +136,20 @@ fn find_hashes(null_amount: usize, hashes_amount: usize) -> Result<Vec<(usize, S
 
             // Когда количество посчитанных хешей достигает F - завершаем программу.
             let mut hashes = Vec::with_capacity(hashes_amount.clone());
+            let wait_for_other_threads = Arc::new(AtomicBool::new(true));
             while let Ok(hash) = worker_hash_rx.recv() {
+                let wait_for_other_threads = wait_for_other_threads.clone();
                 hashes.push(hash);
-                if hashes.len() == hashes_amount {
+                // Ждем пока другие потоки досчитают свой хэш (для небольших чисел)
+                // Так как много потоков считают хеши быстрее одного, а нам нужно выводить
+                // числа и хеши в порядке возрастания
+                if (hashes.len() == hashes_amount) && wait_for_other_threads.load(Ordering::Relaxed) {
+                    thread::spawn( move || {
+                        thread::sleep(Duration::from_secs(2));
+                        wait_for_other_threads.store(false, Ordering::Relaxed);
+                    });
+                } else if !wait_for_other_threads.load(Ordering::Relaxed) {
+                    hashes.sort_by_cached_key(|(number, _)| number.clone());
                     return Ok(hashes)
                 }
             }
@@ -170,6 +186,11 @@ fn parse_null_arg(mut null_amount: usize) -> Result<String, CommandError> {
     Ok(pattern)
 }
 
+/// На моей машине максимально обозримое количество нулей в хеше для рассчета - 6.
+/// Основная проблема в моей реализации была в том, что при небольших (1-2) значениях аргумента N
+/// вывод программы содержал не последовательно рассчитаные значения от 1 до N, некоторые значения
+/// не выводились из-за отставания скорости вычисления в разных потоках, в результате чего пришлось
+/// дожидаться всех потоков и сортировать значения
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -177,38 +198,139 @@ mod tests {
     use super::*;
 
     #[test]
-    fn single_threaded_found_hashes_would_contain_all_multi_threaded_found_hashes() {
-        const NULL_AMOUNT: usize = 4;
-        const HASHES_AMOUNT: usize = 50;
+    fn with_null_amount_1_in_range_of_1_to_10() {
+        const NULL_AMOUNT: usize = 1;
 
-        let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-            find_hashes_single_threaded(NULL_AMOUNT, HASHES_AMOUNT)
-        );
+        for hashes_amount in 1..10 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
+        }
+        println!("hashes_amount in 1..10 finished");
+    }
 
-        let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-            find_hashes(NULL_AMOUNT, HASHES_AMOUNT).unwrap()
-        );
+    #[test]
+    fn with_null_amount_1_in_range_of_10_to_20() {
+        const NULL_AMOUNT: usize = 1;
 
-        for val in multi_threaded_hashes.iter() {
-            assert!(single_threaded_hashes.contains(val))
+        for hashes_amount in 10..20 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
         }
     }
 
     #[test]
-    fn multi_threaded_found_hashes_would_contain_all_single_threaded_found_hashes() {
+    fn with_null_amount_1_in_range_from_20_to_30() {
+        const NULL_AMOUNT: usize = 1;
+
+        for hashes_amount in 20..30 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
+        }
+    }
+
+    #[test]
+    fn with_null_amount_2_in_range_from_1_to_10() {
+        const NULL_AMOUNT: usize = 2;
+
+        for hashes_amount in 1..10 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
+        }
+    }
+
+    #[test]
+    fn with_null_amount_2_in_range_from_10_to_20() {
+        const NULL_AMOUNT: usize = 2;
+
+        for hashes_amount in 10..20 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
+        }
+    }
+
+    #[test]
+    fn with_null_amount_3_in_range_from_1_to_10() {
+        const NULL_AMOUNT: usize = 3;
+
+        for hashes_amount in 1..10 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
+        }
+    }
+
+    #[test]
+    fn with_null_amount_4_in_range_from_1_to_10() {
         const NULL_AMOUNT: usize = 4;
-        const HASHES_AMOUNT: usize = 50;
 
-        let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-            find_hashes_single_threaded(NULL_AMOUNT, HASHES_AMOUNT)
-        );
+        for hashes_amount in 1..10 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
+        }
+    }
 
-        let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-            find_hashes(NULL_AMOUNT, HASHES_AMOUNT).unwrap()
-        );
+    #[test]
+    fn with_null_amount_5_in_range_from_1_to_10() {
+        const NULL_AMOUNT: usize = 5;
 
-        for val in single_threaded_hashes.iter() {
-            assert!(multi_threaded_hashes.contains(val))
+        for hashes_amount in 1..10 {
+            let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+            );
+            let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+            );
+            for val in single_threaded_hashes.iter() {
+                assert!(multi_threaded_hashes.contains(val))
+            }
         }
     }
 
@@ -224,6 +346,7 @@ mod tests {
 
         let mut hashes = Vec::with_capacity(hashes_amount);
         let mut number = 1usize;
+
         loop {
             let hash = digest(&number.to_string());
             if hash.ends_with(pattern.as_str()) {

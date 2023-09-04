@@ -177,23 +177,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn find_hashes_concurrently_would_success() {
+    fn single_threaded_found_hashes_would_contain_all_multi_threaded_found_hashes() {
         const NULL_AMOUNT: usize = 4;
-        const HASHES_AMOUNT: usize = 10;
-
-        for null_amount in 1..5 {
-            for hashes_amount in 1..10 {
-                let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                    find_hashes_single_threaded(null_amount.clone(), hashes_amount.clone())
-                );
-                let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                    find_hashes(null_amount.clone(), hashes_amount.clone()).unwrap()
-                );
-                for val in multi_threaded_hashes.iter() {
-                    assert!(single_threaded_hashes.contains(val))
-                }
-            }
-        }
+        const HASHES_AMOUNT: usize = 50;
 
         let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
             find_hashes_single_threaded(NULL_AMOUNT, HASHES_AMOUNT)
@@ -209,6 +195,24 @@ mod tests {
     }
 
     #[test]
+    fn multi_threaded_found_hashes_would_contain_all_single_threaded_found_hashes() {
+        const NULL_AMOUNT: usize = 4;
+        const HASHES_AMOUNT: usize = 50;
+
+        let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+            find_hashes_single_threaded(NULL_AMOUNT, HASHES_AMOUNT)
+        );
+
+        let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
+            find_hashes(NULL_AMOUNT, HASHES_AMOUNT).unwrap()
+        );
+
+        for val in single_threaded_hashes.iter() {
+            assert!(multi_threaded_hashes.contains(val))
+        }
+    }
+
+    #[test]
     fn null_amount_null_argument_would_return_error() {
         let error_kind = find_hashes(0, 5).unwrap_err().kind();
         assert_eq!(error_kind, ErrorKind::InvalidValue);
@@ -220,11 +224,9 @@ mod tests {
 
         let mut hashes = Vec::with_capacity(hashes_amount);
         let mut number = 1usize;
-        println!("hashes founded by single thread: ");
         loop {
             let hash = digest(&number.to_string());
             if hash.ends_with(pattern.as_str()) {
-                println!("{}, {}", &number, &hash);
                 hashes.push((number.clone(), hash))
             };
 

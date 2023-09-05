@@ -149,7 +149,7 @@ fn find_hashes(null_amount: usize, hashes_amount: usize) -> Result<Vec<(usize, S
                         wait_for_other_threads.store(false, Ordering::Relaxed);
                     });
                 } else if !wait_for_other_threads.load(Ordering::Relaxed) {
-                    hashes.sort_by_cached_key(|(number, _)| number.clone());
+                    hashes.sort_by_key(|(number, _)| number.clone());
                     return Ok(hashes)
                 }
             }

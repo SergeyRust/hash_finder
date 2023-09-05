@@ -194,7 +194,6 @@ fn parse_null_arg(mut null_amount: usize) -> Result<String, CommandError> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use chrono::Utc;
     use super::*;
 
     #[test]

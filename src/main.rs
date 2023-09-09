@@ -135,7 +135,7 @@ fn find_hashes(null_amount: usize, hashes_amount: usize) -> Result<Vec<(usize, S
             producer.start();
 
             // Когда количество посчитанных хешей достигает F - завершаем программу.
-            let mut hashes = Vec::with_capacity(hashes_amount.clone());
+            let mut hashes = Vec::with_capacity(hashes_amount);
             let wait_for_other_threads = Arc::new(AtomicBool::new(true));
             while let Ok(hash) = worker_hash_rx.recv() {
                 let wait_for_other_threads = wait_for_other_threads.clone();
@@ -202,7 +202,7 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -220,7 +220,7 @@ mod tests {
 
         for hashes_amount in 10..20 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -237,7 +237,7 @@ mod tests {
 
         for hashes_amount in 20..30 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -254,7 +254,7 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -271,7 +271,7 @@ mod tests {
 
         for hashes_amount in 10..20 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -288,7 +288,7 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -305,7 +305,7 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -322,7 +322,7 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount)
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
                 find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
@@ -349,7 +349,7 @@ mod tests {
         loop {
             let hash = digest(&number.to_string());
             if hash.ends_with(pattern.as_str()) {
-                hashes.push((number.clone(), hash))
+                hashes.push((number, hash))
             };
 
             if  hashes.len() == hashes_amount {

@@ -145,7 +145,7 @@ fn find_hashes(null_amount: usize, hashes_amount: usize) -> Result<Vec<(usize, S
                 // числа и хеши в порядке возрастания
                 if (hashes.len() == hashes_amount) && wait_for_other_threads.load(Ordering::Relaxed) {
                     thread::spawn( move || {
-                        thread::sleep(Duration::from_secs(2));
+                        thread::sleep(Duration::from_millis(1500));
                         wait_for_other_threads.store(false, Ordering::Relaxed);
                     });
                 } else if !wait_for_other_threads.load(Ordering::Relaxed) {
@@ -202,10 +202,10 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -220,10 +220,10 @@ mod tests {
 
         for hashes_amount in 10..20 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -237,10 +237,10 @@ mod tests {
 
         for hashes_amount in 20..30 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -254,10 +254,10 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -271,10 +271,10 @@ mod tests {
 
         for hashes_amount in 10..20 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -288,10 +288,10 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -305,10 +305,10 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))
@@ -322,10 +322,10 @@ mod tests {
 
         for hashes_amount in 1..10 {
             let single_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes_single_threaded(NULL_AMOUNT.clone(), hashes_amount.clone())
+                find_hashes_single_threaded(NULL_AMOUNT, hashes_amount.clone())
             );
             let multi_threaded_hashes: HashSet<(usize, String)> = HashSet::from_iter(
-                find_hashes(NULL_AMOUNT.clone(), hashes_amount.clone()).unwrap()
+                find_hashes(NULL_AMOUNT, hashes_amount).unwrap()
             );
             for val in single_threaded_hashes.iter() {
                 assert!(multi_threaded_hashes.contains(val))

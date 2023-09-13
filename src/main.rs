@@ -103,7 +103,7 @@ impl Worker {
                 let hash = digest(&number.to_string());
 
                 // Когда хеш с N нулями найден, увеличиваем счетчик
-                if hash.ends_with(pattern.as_str()) {
+                if hash.ends_with(&pattern) {
                     let _ = worker_hash_tx.send((number, hash));
                 }
             }
@@ -348,7 +348,7 @@ mod tests {
 
         loop {
             let hash = digest(&number.to_string());
-            if hash.ends_with(pattern.as_str()) {
+            if hash.ends_with(&pattern) {
                 hashes.push((number, hash))
             };
 
